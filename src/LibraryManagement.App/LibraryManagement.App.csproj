@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Lets the project also build on Linux/macOS (CI, code review); no effect on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <RootNamespace>LibraryManagement.App</RootNamespace>
+    <AssemblyName>LibraryManagementSystem</AssemblyName>
+    <AssemblyTitle>Library Management System</AssemblyTitle>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!--
+      The title typeface, crest and icon are compiled INTO the .exe, so the app looks the
+      same on every computer without installing anything or copying loose files around.
+    -->
+    <EmbeddedResource Include="Assets\Fonts\CrimsonText-SemiBold.ttf" LogicalName="Assets.Fonts.CrimsonText-SemiBold.ttf" />
+    <EmbeddedResource Include="Assets\crest.png" LogicalName="Assets.crest.png" />
+    <EmbeddedResource Include="Assets\app.ico" LogicalName="Assets.app.ico" />
+
+    <!-- Crimson Text is under the SIL Open Font License, which asks that its licence travels with it. -->
+    <Content Include="Assets\Fonts\CrimsonText-OFL.txt" Link="licenses\CrimsonText-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LibraryManagement.Core\LibraryManagement.Core.csproj" />
+  </ItemGroup>
+
+</Project>

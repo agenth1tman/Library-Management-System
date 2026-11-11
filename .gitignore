@@ -1,0 +1,14 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+.vs/
+.idea/
+TestResults/
+
+# Secrets: Firebase service-account keys must never be committed
+firebase-credentials.json
+*firebase-adminsdk*.json
+*service-account*.json
+.env
