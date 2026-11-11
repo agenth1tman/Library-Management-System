@@ -11,10 +11,10 @@ internal abstract class ViewBase : UserControl
         Shell = shell;
         Dock = DockStyle.Fill;
         AutoScaleMode = AutoScaleMode.Inherit;
-        BackColor = Theme.Background;
-        ForeColor = Theme.Text;
+        BackColor = Theme.Page;
+        ForeColor = Theme.Ink;
         Font = Theme.Body;
-        Padding = new Padding(32, 26, 32, 24);
+        Padding = new Padding(28, 20, 28, 20);
         Visible = false;
     }
 

@@ -17,12 +17,15 @@
 
   <ItemGroup>
     <!--
-      The font, crest and icon are compiled INTO the .exe, so the app looks the same on
-      every computer without installing anything or copying loose files around.
+      The title typeface, crest and icon are compiled INTO the .exe, so the app looks the
+      same on every computer without installing anything or copying loose files around.
     -->
-    <EmbeddedResource Include="Assets\starz_2016.ttf" LogicalName="Assets.starz_2016.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\CrimsonText-SemiBold.ttf" LogicalName="Assets.Fonts.CrimsonText-SemiBold.ttf" />
     <EmbeddedResource Include="Assets\crest.png" LogicalName="Assets.crest.png" />
     <EmbeddedResource Include="Assets\app.ico" LogicalName="Assets.app.ico" />
+
+    <!-- Crimson Text is under the SIL Open Font License, which asks that its licence travels with it. -->
+    <Content Include="Assets\Fonts\CrimsonText-OFL.txt" Link="licenses\CrimsonText-OFL.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

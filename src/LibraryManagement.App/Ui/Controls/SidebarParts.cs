@@ -2,7 +2,7 @@ using System.ComponentModel;
 
 namespace LibraryManagement.App.Ui.Controls;
 
-/// <summary>The crest and app name at the top of the sidebar.</summary>
+/// <summary>The school crest and the app's name at the top of the sidebar.</summary>
 internal sealed class BrandHeader : Control
 {
     public BrandHeader()
@@ -13,41 +13,43 @@ internal sealed class BrandHeader : Control
             true);
         SetStyle(ControlStyles.Selectable, false);
 
-        Height = 88;
+        Height = 92;
         Dock = DockStyle.Top;
+        AccessibleRole = AccessibleRole.Graphic;
+        AccessibleName = "Library Management System";
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
-        graphics.Clear(Theme.Sidebar);
+        graphics.Clear(Theme.Navy);
         Drawing.Prepare(graphics);
         graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
 
-        var size = LogicalToDeviceUnits(46);
-        var left = LogicalToDeviceUnits(6);
-        var top = LogicalToDeviceUnits(8);
+        var size = LogicalToDeviceUnits(44);
+        var left = LogicalToDeviceUnits(18);
+        var top = LogicalToDeviceUnits(22);
 
         if (EmbeddedAssets.Crest is { } crest)
         {
             graphics.DrawImage(crest, new Rectangle(left, top, size, size));
         }
 
-        var textLeft = left + size + LogicalToDeviceUnits(12);
+        var textLeft = left + size + LogicalToDeviceUnits(10);
         var middle = top + (size / 2f);
-        Drawing.DrawText(graphics, "Library", Theme.Brand, Theme.Text, RectangleF.FromLTRB(textLeft, top - 2, Width, middle + 3), vertical: StringAlignment.Far);
-        Drawing.DrawText(graphics, "Management System", Theme.Small, Theme.TextMuted, RectangleF.FromLTRB(textLeft + 1, middle + 3, Width, top + size + 4), vertical: StringAlignment.Near);
+        Drawing.DrawText(graphics, "Library", Theme.Brand, Theme.OnNavy, RectangleF.FromLTRB(textLeft, top - 4, Width, middle + 4), vertical: StringAlignment.Far);
+        Drawing.DrawText(graphics, "Management System", Theme.Small, Theme.OnNavyMuted, RectangleF.FromLTRB(textLeft + 1, middle + 3, Width, top + size + 6), vertical: StringAlignment.Near);
     }
 }
 
-/// <summary>Shows, at the bottom of the sidebar, where the data is coming from.</summary>
-internal sealed class ConnectionBadge : Control
+/// <summary>Two lines at the bottom of the sidebar saying where the data comes from.</summary>
+internal sealed class ConnectionStatus : Control
 {
     private string _title = "Not connected";
-    private string _detail = "Choose a data source";
-    private Color _dot = Theme.TextDisabled;
+    private string _detail = string.Empty;
+    private bool _warning;
 
-    public ConnectionBadge()
+    public ConnectionStatus()
     {
         SetStyle(
             ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint |
@@ -55,18 +57,22 @@ internal sealed class ConnectionBadge : Control
             true);
         SetStyle(ControlStyles.Selectable, false);
 
-        Height = 52;
+        Height = 58;
         Dock = DockStyle.Bottom;
+        AccessibleRole = AccessibleRole.StaticText;
+        AccessibleName = _title;
     }
 
+    /// <summary><c>Warning</c> draws the title in gold: the data on screen is not the real library.</summary>
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
-    public (string Title, string Detail, Color Dot) State
+    public (string Title, string Detail, bool Warning) State
     {
-        get => (_title, _detail, _dot);
+        get => (_title, _detail, _warning);
         set
         {
-            (_title, _detail, _dot) = value;
+            (_title, _detail, _warning) = value;
             AccessibleName = $"{_title}. {_detail}";
+            AccessibilityNotifyClients(AccessibleEvents.NameChange, -1);
             Invalidate();
         }
     }
@@ -74,22 +80,20 @@ internal sealed class ConnectionBadge : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
-        graphics.Clear(Theme.Sidebar);
+        graphics.Clear(Theme.Navy);
         Drawing.Prepare(graphics);
 
-        var bounds = Drawing.Face(this);
-        Drawing.FillRounded(graphics, Drawing.Blend(Theme.Sidebar, Theme.Surface, 0.5f), bounds, LogicalToDeviceUnits(Theme.CornerRadius - 2));
+        var left = LogicalToDeviceUnits(20);
+        var right = Width - LogicalToDeviceUnits(10);
 
-        var dot = LogicalToDeviceUnits(9);
-        var left = LogicalToDeviceUnits(14);
-        using (var brush = new SolidBrush(_dot))
+        using (var pen = new Pen(Theme.NavyHover))
         {
-            graphics.FillEllipse(brush, left, (Height - dot) / 2f, dot, dot);
+            graphics.DrawLine(pen, left, 0, right, 0);
         }
 
-        var textLeft = left + dot + LogicalToDeviceUnits(10);
-        var half = Height / 2f;
-        Drawing.DrawText(graphics, _title, Theme.SmallStrong, Theme.Text, RectangleF.FromLTRB(textLeft, 0, Width - 6, half + 1), vertical: StringAlignment.Far);
-        Drawing.DrawText(graphics, _detail, Theme.Small, Theme.TextMuted, RectangleF.FromLTRB(textLeft, half + 1, Width - 6, Height), vertical: StringAlignment.Near);
+        var top = LogicalToDeviceUnits(10);
+        var line = LogicalToDeviceUnits(18);
+        Drawing.DrawText(graphics, _title, Theme.SmallStrong, _warning ? Theme.Gold : Theme.OnNavy, RectangleF.FromLTRB(left, top, right, top + line));
+        Drawing.DrawText(graphics, _detail, Theme.Small, Theme.OnNavyMuted, RectangleF.FromLTRB(left, top + line, right, top + (2 * line)));
     }
 }

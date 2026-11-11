@@ -11,15 +11,13 @@ internal static class Make
 {
     public static Label Text(string text, Font font, Color color, bool wrap = false)
     {
+        // GDI+ text rendering draws the embedded title font straight from the app's
+        // private font collection; everything else uses the crisper default renderer.
+        var useGdiPlus = AppFonts.IsTitleFont(font);
+
         if (wrap)
         {
-            return new WrapLabel
-            {
-                Text = text,
-                Font = font,
-                ForeColor = color,
-                UseCompatibleTextRendering = AppFonts.IsDisplayFont(font),
-            };
+            return new WrapLabel { Text = text, Font = font, ForeColor = color, UseCompatibleTextRendering = useGdiPlus };
         }
 
         return new Label
@@ -30,20 +28,17 @@ internal static class Make
             AutoSize = true,
             Margin = Padding.Empty,
             UseMnemonic = false,
-
-            // GDI+ text rendering draws the embedded display font straight from the app's
-            // private font collection; everything else uses the crisper default renderer.
-            UseCompatibleTextRendering = AppFonts.IsDisplayFont(font),
+            UseCompatibleTextRendering = useGdiPlus,
         };
     }
 
-    public static Label Title(string text) => Text(text, Theme.Title, Theme.Text);
+    public static Label Title(string text) => Text(text, Theme.Title, Theme.Ink);
 
-    public static Label Subtitle(string text = "") => Text(text, Theme.Body, Theme.TextMuted);
+    public static Label Subtitle(string text = "") => Text(text, Theme.Body, Theme.InkMuted);
 
-    public static Label Heading(string text) => Text(text, Theme.Heading, Theme.Text);
+    public static Label Heading(string text) => Text(text, Theme.Heading, Theme.Ink);
 
-    public static Label Caption(string text) => Text(text, Theme.Small, Theme.TextMuted);
+    public static Label Caption(string text) => Text(text, Theme.Small, Theme.InkMuted);
 
     /// <summary>Stacks controls top to bottom, each as wide as the stack.</summary>
     public static TableLayoutPanel Stack(params Control[] rows)
@@ -61,7 +56,7 @@ internal static class Make
         foreach (var row in rows)
         {
             stack.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            if (row is not Label { AutoSize: true, Dock: DockStyle.None })
+            if (row is not (Label { AutoSize: true, Dock: DockStyle.None } or FlowLayoutPanel or CheckBox))
             {
                 row.Dock = DockStyle.Fill;
             }
@@ -85,36 +80,20 @@ internal static class Make
 
         for (var index = 0; index < items.Length; index++)
         {
-            items[index].Margin = new Padding(index == 0 ? 0 : gap, 0, 0, 0);
+            var existing = items[index].Margin;
+            items[index].Margin = new Padding(index == 0 ? 0 : gap, existing.Top, 0, existing.Bottom);
             flow.Controls.Add(items[index]);
         }
 
         return flow;
     }
 
-    /// <summary>Lays controls out left to right in equally wide columns.</summary>
-    public static ColumnsPanel EqualColumns(int gap, params Control[] items) =>
-        new(gap, items.Select(item => (item, 1f)).ToArray());
-
     /// <summary>Lays controls out left to right, sharing the width by <c>Weight</c>.</summary>
     public static ColumnsPanel Columns(int gap, params (Control Control, float Weight)[] items) => new(gap, items);
 
-    /// <summary>A small caption above an input.</summary>
-    public static TableLayoutPanel Field(string caption, Control input)
+    /// <summary>Page title (and optional subtitle) on the left, actions on the right.</summary>
+    public static TableLayoutPanel Header(string title, Label? subtitle, params Control[] actions)
     {
-        var label = Caption(caption);
-        label.Margin = new Padding(1, 0, 0, 6);
-
-        var field = Stack(label, input);
-        field.Margin = new Padding(0, 0, 0, Theme.Gap);
-        return field;
-    }
-
-    /// <summary>Page title and subtitle on the left, action buttons on the right.</summary>
-    public static TableLayoutPanel Header(string title, Label subtitle, params Control[] actions)
-    {
-        subtitle.Margin = new Padding(2, 4, 0, 0);
-
         var header = new TableLayoutPanel
         {
             ColumnCount = 2,
@@ -122,17 +101,26 @@ internal static class Make
             AutoSize = true,
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Dock = DockStyle.Fill,
-            Margin = new Padding(0, 0, 0, 22),
+            Margin = new Padding(0, 0, 0, 18),
         };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         header.RowStyles.Add(new RowStyle(SizeType.AutoSize));
 
-        header.Controls.Add(Stack(Title(title), subtitle), 0, 0);
+        var titleLabel = Title(title);
+        if (subtitle is null)
+        {
+            header.Controls.Add(Stack(titleLabel), 0, 0);
+        }
+        else
+        {
+            subtitle.Margin = new Padding(2, 2, 0, 0);
+            header.Controls.Add(Stack(titleLabel, subtitle), 0, 0);
+        }
 
         if (actions.Length > 0)
         {
-            var buttons = Flow(10, actions);
+            var buttons = Flow(8, actions);
             buttons.Anchor = AnchorStyles.Right;
             header.Controls.Add(buttons, 1, 0);
         }
@@ -141,12 +129,36 @@ internal static class Make
     }
 
     /// <summary>
-    /// A card with a heading above one control. With <paramref name="fill"/> the content
-    /// stretches to the card's height; without it the card is only as tall as its content.
+    /// A heading (with an optional action on its right) above some content. With
+    /// <paramref name="fill"/> the content takes all remaining height; without it the
+    /// section is only as tall as its content.
     /// </summary>
-    public static Card CardWith(string heading, string? caption, Control content, bool fill = true)
+    public static TableLayoutPanel Section(string heading, Control content, Control? action = null, bool fill = false)
     {
-        var table = new TableLayoutPanel
+        var headingRow = new TableLayoutPanel
+        {
+            ColumnCount = 2,
+            RowCount = 1,
+            AutoSize = true,
+            AutoSizeMode = AutoSizeMode.GrowAndShrink,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 0, 0, 8),
+        };
+        headingRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        headingRow.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        headingRow.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+
+        var headingLabel = Heading(heading);
+        headingLabel.Anchor = AnchorStyles.Left;
+        headingRow.Controls.Add(headingLabel, 0, 0);
+
+        if (action is not null)
+        {
+            action.Anchor = AnchorStyles.Right;
+            headingRow.Controls.Add(action, 1, 0);
+        }
+
+        var section = new TableLayoutPanel
         {
             ColumnCount = 1,
             Dock = fill ? DockStyle.Fill : DockStyle.Top,
@@ -154,27 +166,26 @@ internal static class Make
             AutoSizeMode = AutoSizeMode.GrowAndShrink,
             Margin = Padding.Empty,
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-
-        var headingLabel = Heading(heading);
-        table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        table.Controls.Add(headingLabel);
-
-        if (caption is not null)
-        {
-            var captionLabel = Caption(caption);
-            captionLabel.Margin = new Padding(1, 4, 0, 0);
-            table.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-            table.Controls.Add(captionLabel);
-        }
+        section.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        section.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        section.RowStyles.Add(fill ? new RowStyle(SizeType.Percent, 100) : new RowStyle(SizeType.AutoSize));
 
         content.Dock = DockStyle.Fill;
-        content.Margin = new Padding(0, 14, 0, 0);
-        table.RowStyles.Add(fill ? new RowStyle(SizeType.Percent, 100) : new RowStyle(SizeType.AutoSize));
-        table.Controls.Add(content);
+        section.Controls.Add(headingRow);
+        section.Controls.Add(content);
+        return section;
+    }
 
-        var card = new Card { AutoSize = !fill, AutoSizeMode = AutoSizeMode.GrowAndShrink };
-        card.Controls.Add(table);
-        return card;
+    /// <summary>A table with a one-line message shown in its place when it has no rows.</summary>
+    public static Panel GridWithEmptyState(BookGrid grid, Label emptyState)
+    {
+        emptyState.Margin = Padding.Empty;
+        emptyState.Location = new Point(1, 6);
+        emptyState.Visible = false;
+
+        var host = new Panel { Margin = Padding.Empty };
+        host.Controls.Add(grid);
+        host.Controls.Add(emptyState);
+        return host;
     }
 }

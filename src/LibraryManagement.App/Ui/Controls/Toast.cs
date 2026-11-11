@@ -2,18 +2,18 @@ namespace LibraryManagement.App.Ui.Controls;
 
 internal enum NoticeKind
 {
-    Success,
     Info,
     Error,
 }
 
 /// <summary>
-/// A short message that slides in over the bottom of the window and goes away by itself,
-/// so routine confirmations don't need a dialog box and a click.
+/// A short message along the bottom of the window that goes away by itself. Reserved for
+/// things that did not happen where the user is looking: a failed request, a report saved
+/// in the background. Results of a button press are shown next to that button instead.
 /// </summary>
 internal sealed class Toast : Control
 {
-    private const int MaxWidth = 720;
+    private const int MaxWidth = 760;
 
     private readonly System.Windows.Forms.Timer _timer = new();
     private NoticeKind _kind;
@@ -29,6 +29,7 @@ internal sealed class Toast : Control
         Visible = false;
         Font = Theme.Body;
         Cursor = Cursors.Hand;
+        AccessibleRole = AccessibleRole.Alert;
         _timer.Tick += (_, _) => Dismiss();
         Click += (_, _) => Dismiss();
     }
@@ -48,6 +49,9 @@ internal sealed class Toast : Control
         Visible = true;
         BringToFront();
         Invalidate();
+
+        // Tells screen readers to announce the message (the web's aria-live).
+        AccessibilityNotifyClients(AccessibleEvents.SystemAlert, -1);
     }
 
     /// <summary>Keeps the toast centred along the bottom edge of its parent.</summary>
@@ -58,39 +62,24 @@ internal sealed class Toast : Control
             return;
         }
 
-        var margin = LogicalToDeviceUnits(24);
-        var textWidth = Drawing.MeasureWidth(Text, Font) + LogicalToDeviceUnits(56);
+        var margin = LogicalToDeviceUnits(20);
+        var textWidth = Drawing.MeasureWidth(Text, Font) + LogicalToDeviceUnits(36);
         var width = Math.Min(Math.Min(textWidth, LogicalToDeviceUnits(MaxWidth)), parent.ClientSize.Width - (2 * margin));
-        var height = LogicalToDeviceUnits(46);
+        var height = LogicalToDeviceUnits(38);
         SetBounds((parent.ClientSize.Width - width) / 2, parent.ClientSize.Height - height - margin, Math.Max(0, width), height);
     }
 
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
-        graphics.Clear(Parent?.BackColor ?? Theme.Background);
+        graphics.Clear(Parent?.BackColor ?? Theme.Page);
         Drawing.Prepare(graphics);
 
-        var accent = _kind switch
-        {
-            NoticeKind.Error => Theme.Danger,
-            NoticeKind.Info => Theme.Info,
-            _ => Theme.Success,
-        };
-
         var bounds = Drawing.Face(this);
-        var radius = LogicalToDeviceUnits(Theme.CornerRadius);
-        Drawing.FillRounded(graphics, Theme.SurfaceRaised, bounds, radius);
-        Drawing.StrokeRounded(graphics, accent, bounds, radius, LogicalToDeviceUnits(1));
+        Drawing.FillRounded(graphics, _kind == NoticeKind.Error ? Theme.Overdue : Theme.Ink, bounds, LogicalToDeviceUnits(Theme.CornerRadius));
 
-        var dot = LogicalToDeviceUnits(10);
-        using (var brush = new SolidBrush(accent))
-        {
-            graphics.FillEllipse(brush, LogicalToDeviceUnits(18), (Height - dot) / 2f, dot, dot);
-        }
-
-        var textBounds = RectangleF.FromLTRB(LogicalToDeviceUnits(40), 0, Width - LogicalToDeviceUnits(16), Height);
-        Drawing.DrawText(graphics, Text, Font, Theme.Text, textBounds);
+        var textBounds = RectangleF.FromLTRB(LogicalToDeviceUnits(16), 0, Width - LogicalToDeviceUnits(16), Height);
+        Drawing.DrawText(graphics, Text, Font, Color.White, textBounds);
     }
 
     protected override void Dispose(bool disposing)

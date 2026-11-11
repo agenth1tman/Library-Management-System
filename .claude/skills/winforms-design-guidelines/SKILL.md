@@ -30,8 +30,18 @@ rules are here, in the repo, and change only through a commit.
   "needs visual check" instead of guessing.
 - **Verifying visually:** the app runs under Wine in cloud sessions
   (`dotnet publish -r win-x64 --self-contained`, then `wine LibraryManagementSystem.exe --demo`
-  inside `xvfb-run`). Wine substitutes Segoe UI and ignores the dark title bar, so judge
-  spacing and hierarchy there, not exact font rendering.
+  inside `xvfb-run`). Wine substitutes another font for Segoe UI, so judge spacing and
+  hierarchy there, not exact font rendering. Give a freshly published build 20 seconds
+  to start before taking a screenshot.
+
+## The look this app has chosen
+
+Paper and ink, like a library catalogue: a light page (`Theme.Page`), dark text
+(`Theme.Ink`), ruled tables that sit directly on the page, and no cards. The school's
+navy and gold live in the sidebar. On the page, navy marks the one primary action of a
+screen; red, amber and green appear only on status words. Page titles and the brand are
+set in Crimson Text; everything else is Segoe UI. New work should extend this, not
+reintroduce a dark dashboard.
 
 ---
 
@@ -47,8 +57,9 @@ rules are here, in the repo, and change only through a commit.
   `AccessibleName`/`AccessibleDescription` when they change, and call
   `AccessibilityNotifyClients(AccessibleEvents.NameChange, -1)` for live updates (web:
   `aria-live`).
-- Inputs have a visible caption (`Make.Field`) and the `InputBox` passes it on as the inner
-  `TextBox`'s `AccessibleName`. A placeholder is not a label.
+- Inputs have a visible caption (`FormField`), which is also set as `InputBox.Caption` so
+  the inner `TextBox` gets it as its `AccessibleName`. An input without a visible caption
+  (a search box) still sets `Caption`. A placeholder is not a label.
 - Decorative images (crest, status dots) are not focusable and need no name; meaningful
   images get `AccessibleDescription`.
 - Use real `Button`/`CheckBox` subclasses for actions, never a `Panel` or `Label` with a
@@ -65,8 +76,9 @@ rules are here, in the repo, and change only through a commit.
   because the selected row is the indicator; keep the selected row clearly visible.)
 - Each screen with one obvious action makes Enter do it (`InputBox.EnterPressed`, or
   `AcceptButton` on dialogs) and Esc cancel or clear (`CancelButton`).
-- Consider access keys (`&Save`) on primary buttons; `Make.Text` sets `UseMnemonic = false`
-  for data labels only, so `&` in book titles is not swallowed.
+- Labels and custom buttons set `UseMnemonic = false`, so an `&` in a book title or in
+  "Issue & return" is shown rather than swallowed. Global shortcuts live in
+  `MainForm.ProcessCmdKey` (Ctrl+1 to Ctrl+6 for the screens, F5 to reload).
 - Toasts and overlays never cover the focused control.
 
 ### Forms (web: autocomplete, types, labels, errors)
@@ -77,18 +89,18 @@ rules are here, in the repo, and change only through a commit.
 - The submit button stays enabled until the request starts, then the shell's busy state
   takes over (`IShell.RunAsync` sets the `BusyBar` and wait cursor). Do not add a second
   spinner.
-- **Validation errors go next to the field**, not in a toast: an `ErrorProvider` or a
-  small `Theme.Danger` caption under the input, and focus moves to the first bad field.
-  Toasts are for results ("Issued to …"), not for "this field is empty".
+- **Validation errors go next to the field**, not in a toast: set `FormField.Error` (or
+  call `FormField.Require`), which shows the reason under the input and outlines it in
+  red. Check all fields, then move focus to the first bad one.
 - Placeholders show an example in the expected shape (`e.g. BTS-10-214`).
-- Unsaved edits (e.g. changed title on the Manage screen) are not lost silently: warn on
-  navigation and in `FormClosing`, or save on leave.
+- Unsaved edits are not lost silently. The desk screen does this with
+  `ManageView.ConfirmDiscardEdits()`, called before opening another book, navigating away
+  and closing the window; any new editable screen needs the same.
 
 ### Motion (web: prefers-reduced-motion, transition: all)
 
-- Respect the Windows "Show animations" setting (`SystemInformation.UIEffectsEnabled`, or
-  `SPI_GETCLIENTAREAANIMATION`): no sliding toasts or moving busy bars when it is off; show
-  a static state instead.
+- Respect the Windows "Show animations" setting through `Drawing.AnimationsEnabled`: when
+  it is off, show a static state instead of moving anything (see `BusyBar`).
 - Animate with a `System.Windows.Forms.Timer` that only invalidates the area that changed;
   never re-layout on every tick.
 - Any animation must be interruptible: clicks and typing work while it runs.
@@ -101,10 +113,16 @@ rules are here, in the repo, and change only through a commit.
   `Change folder…`.
 - Numbers that are compared (counts, IDs, days) are right-aligned in grid columns
   (`DataGridViewContentAlignment.MiddleRight`) so the digits line up.
-- Display font (Starz 2016, `AppFonts.Display`) only for the page title and the brand.
-  Everything a librarian reads or types (tables, forms, buttons, captions) uses Segoe UI
-  (`AppFonts.Body`). Never set a size below 9 pt.
-- Use the font sizes in `Theme.cs`; no ad-hoc `new Font(...)` in views.
+- The title typeface (Crimson Text, `AppFonts.Title`) only for page titles, the brand and
+  a book's title on the desk screen. Everything a librarian reads or types (tables, forms,
+  buttons, captions) uses Segoe UI (`AppFonts.Body`, `AppFonts.Strong`). Never set a size
+  below 9 pt.
+- Use the fonts in `Theme.cs`; no ad-hoc `new Font(...)` in views.
+- **Only ship fonts whose licence allows it.** Embedded fonts must be under an open
+  licence such as the SIL Open Font License, with the licence file kept next to the font
+  in `Assets/Fonts/`. Before adding one, read the copyright and licence fields inside the
+  file itself (name IDs 0, 13 and 14); a "free download" page is not a licence. The app
+  once shipped a renamed copy of a commercial typeface this way.
 
 ### Content handling
 
@@ -138,17 +156,25 @@ rules are here, in the repo, and change only through a commit.
 - Layout comes from `TableLayoutPanel`/`Make.*`/`ColumnsPanel`, docking and auto-size, not
   hard-coded `Location`s.
 - Every pixel value used in painting goes through `LogicalToDeviceUnits(...)`; values the
-  framework does not scale itself (grid row height, column minimum width) are scaled by
+  framework does not scale itself (grid row height, column widths) are scaled by
   `DeviceDpi / 96f`.
+- A size set in code after the form has been scaled must be scaled by hand (see
+  `AppButton.SetText`), and a control that positions a child itself must lay out again
+  when it becomes visible (see `InputBox.OnVisibleChanged`): WinForms scales with layout
+  switched off.
+- In tables, numbers, identifiers, dates and statuses get a fixed width
+  (`ColumnDefinition.Fixed`) so they are never cut off; only free text shares the rest.
 - Check at 100 % and 150 % scaling. No horizontal scrollbar at the minimum window size
-  (1120 × 720).
+  (1120 × 680).
 
-### Dark theme (web: color-scheme, theme-color)
+### Native parts (web: color-scheme, theme-color)
 
-- `NativeTheme.UseDarkTitleBar` on every top-level form and `UseDarkScrollBars` on every
-  scrolling control.
-- Native `MessageBox`, open/save and folder dialogs stay light; that is acceptable, but
-  avoid chains of them. Prefer inline confirmation for frequent actions.
+- The app is light on purpose, so the parts Windows draws (title bar, scroll bars,
+  `MessageBox`, file dialogs, check boxes) match without any tricks. Do not add a dark
+  mode without also handling every one of those.
+- Use native controls where they exist (`CheckBox` in Settings) rather than drawing a
+  web-style replacement.
+- Avoid chains of message boxes. Prefer inline confirmation for frequent actions.
 
 ### Locale
 
@@ -172,7 +198,7 @@ rules are here, in the repo, and change only through a commit.
   app follows the Windows convention instead, which uses sentence case.)
 - Numerals for counts: "8 books", not "eight books".
 - Button labels name the action: "Issue book", "Mark as returned", not "OK", "Submit",
-  "Continue".
+  "Continue". A button that opens a dialog ends with `…`.
 - Error messages say what happened and what to do next.
 
 ### Web rules that do not apply here
@@ -188,46 +214,41 @@ safe-area insets, `loading="lazy"`, `fetchpriority`, preconnect/preload, `<meta>
 Generic UI comes from defaults applied evenly: every block is the same rounded card, every
 number gets a tile, every heading gets a helper sentence, one accent colour goes on
 everything. A school librarian at a desk does a few jobs many times a day; the design
-should look shaped by those jobs. Check each rule against the code; the parenthesised notes
-say where this app currently does the generic thing.
+should look shaped by those jobs. Each rule names the place in this app that shows the
+intended answer.
 
-1. **No identical stat-tile rows.** A row of five equal tiles with a coloured dot, a small
-   caption and a big number is the default dashboard. Show the one or two numbers that
-   need action (overdue, due soon) prominently, and the rest as a single plain line of
-   text. (`DashboardView`, `ReportsView`: 5 and 6 `StatCard`s.)
-2. **Don't repeat navigation.** A "Quick actions" panel that duplicates the sidebar is
-   filler. Give the space to real content, e.g. the list of overdue books with a Return
-   button per row. (`DashboardView.BuildQuickActions`.)
-3. **No subtitle that restates the title.** "Register a book / Add a new copy to the
-   catalogue." says nothing new. Use a subtitle only for real information: a date, a count,
-   a state. (`RegisterView`, `ManageView`.)
-4. **Not everything is a card.** Use cards for things that are separate objects. The main
-   table can sit directly on the page; groups inside a form can be separated by space or a
-   1 px divider. Never put a card inside a card.
-5. **Vary size by importance.** Equal widths, equal radii and equal gaps everywhere read as
-   a template. The primary content of a screen gets most of the space; secondary panels are
-   narrower and quieter.
-6. **One accent, used sparingly.** Gold (`Theme.Accent`) is for the single primary action
-   per screen and the current page marker. Not for chips, focus rings, toggle tracks, stat
-   dots and borders all at once. Status colours (green/amber/red) appear only where status
-   is the information.
-7. **Colour dots are not decoration.** A dot next to a caption that also has a colour
-   name is noise. Use a status colour on the status word itself, once.
-8. **Density that suits the work.** Librarians scan lists of books. Rows of ~32–36 px,
-   10 pt text and compact padding beat airy 40 px rows and 24 px card padding.
-9. **Real domain language and data.** Use the library's terms (accession number, return,
-   overdue, class 10-B) and realistic sample data. No marketing tone ("seamlessly",
-   "effortlessly", "Welcome back!"), no exclamation marks, no emoji.
-10. **No ornamental gradients, glows, shadows or glassmorphism.** Flat surfaces with clear
-    contrast. Rounded corners: one small radius (4–6 px) for inputs and buttons; panels may
-    be square.
+1. **No identical stat-tile rows.** A row of equal tiles with a coloured dot, a small
+   caption and a big number is the default dashboard. State the one or two numbers that
+   need action as plain large text and the rest as one sentence (`TodayView`), or as a
+   plain two-column list (`ReportsView.BuildFigures`).
+2. **Don't repeat navigation.** No "Quick actions" panel that duplicates the sidebar. Give
+   the space to real content: the list of books to chase, the books registered today.
+3. **No subtitle that restates the title.** Use a subtitle only for real information: a
+   date, a count, the next book number. `Make.Header` accepts `null`.
+4. **Not everything is a card.** There are no cards in this app. Tables sit on the page;
+   groups are separated by space, a heading (`Make.Section`) or a 1 px `Divider`.
+5. **Vary size by importance.** The primary content of a screen gets most of the space;
+   secondary panels are narrower and quieter. On the desk screen lending gets 56 % and
+   the screen's only primary button; editing the record gets 44 % and plain buttons.
+6. **One accent, used sparingly.** Navy (`ButtonKind.Primary`) is for the single primary
+   action per screen. Gold appears only on the navy sidebar (current page, sample-data
+   warning). Status colours (`Theme.Overdue`, `DueSoon`, `Available`) appear only where
+   status is the information; "On loan" is not a colour.
+7. **Colour dots are not decoration.** Put the status colour on the status word itself.
+8. **Density that suits the work.** Table rows are 32 px, controls 32 px
+   (`Theme.ControlHeight`), body text 10 pt. Do not add padding to look "clean".
+9. **Real domain language and data.** "On the shelf", "8 days overdue", "Due tomorrow",
+   "Class 10-B", "Books to chase". No marketing tone ("seamlessly", "Welcome back!"), no
+   exclamation marks, no emoji, no icons standing in for words.
+10. **No ornamental gradients, glows, shadows or glassmorphism.** Flat surfaces, hairline
+    rules. One corner radius (`Theme.CornerRadius`, 4 px) for inputs and buttons only.
 11. **Typographic hierarchy comes from size and weight, not from new fonts or colours.**
-    Two families at most (Starz 2016 for the title and brand, Segoe UI for the rest).
-12. **Feedback where the action happened.** A confirmation next to the button or row that
-    triggered it is more convincing than a toast at the bottom of the window; keep toasts
-    for background events (auto-saved report, connection lost).
-13. **The school, not a theme.** Use the crest and the school's own colours deliberately in
-    one or two places (sidebar header, report export) rather than tinting the whole UI.
+    Two families: Crimson Text for titles, Segoe UI for the rest.
+12. **Feedback where the action happened.** The result of a button press is a line of
+    text next to it (`ManageView.Say`, `RegisterView._result`, `ReportsView._saved`).
+    `IShell.Notify` (the toast) is only for failures and background events.
+13. **The school, not a theme.** The crest and the school's navy and gold are in the
+    sidebar and nowhere else.
 14. **Fewer explanations.** If a screen needs a paragraph of helper text, fix the screen.
     Keep helper text for things a librarian genuinely cannot know (where the Firebase key
     comes from).
@@ -246,14 +267,15 @@ Group by file, `file:line` (clickable), one finding per line, terse. Tag the rul
 ranked.
 
 ```text
-## src/LibraryManagement.App/Views/DashboardView.cs
+## src/LibraryManagement.App/Views/ExampleView.cs
 
-src/LibraryManagement.App/Views/DashboardView.cs:22 - [generic] 5 identical stat tiles → lead with Overdue/Due soon, rest as one line
-src/LibraryManagement.App/Views/DashboardView.cs:58 - [generic] Quick actions duplicate sidebar nav
+src/LibraryManagement.App/Views/ExampleView.cs:22 - [generic] 5 identical stat tiles → state the 2 that need action, rest as one line
+src/LibraryManagement.App/Views/ExampleView.cs:58 - [forms] empty-field error shown as toast → FormField.Error
+src/LibraryManagement.App/Views/ExampleView.cs:71 - [copy] subtitle restates title
 
-## src/LibraryManagement.App/Ui/Controls/StatCard.cs
+## src/LibraryManagement.App/Ui/Controls/ExampleControl.cs
 
-src/LibraryManagement.App/Ui/Controls/StatCard.cs:20 - [a11y] no AccessibleRole; value not announced on change
+src/LibraryManagement.App/Ui/Controls/ExampleControl.cs:20 - [a11y] custom-drawn, no AccessibleName/AccessibleRole
 
 ## Top 3
 1. …

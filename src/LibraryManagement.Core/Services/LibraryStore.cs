@@ -35,6 +35,13 @@ public sealed class LibraryStore
 
     public DateOnly Today => _today();
 
+    /// <summary>
+    /// The ID the next registered book will get: one more than the highest number in use,
+    /// so the ID of a deleted book is never recycled.
+    /// </summary>
+    public string NextBookId =>
+        ((Books.Max(book => book.NumericId) ?? -1) + 1).ToString(CultureInfo.InvariantCulture);
+
     public bool IsConnected => _repository is not null;
 
     /// <summary>False while showing sample data that is not saved anywhere.</summary>
@@ -97,7 +104,7 @@ public sealed class LibraryStore
         {
             var book = new Book
             {
-                Id = NextBookId(),
+                Id = NextBookId,
                 Title = details.Title,
                 Author = details.Author,
                 Barcode = details.Barcode,
@@ -212,28 +219,22 @@ public sealed class LibraryStore
 
         if (clean.Title.Length == 0)
         {
-            throw new LibraryException("Enter the book's title.");
+            throw new LibraryException("Enter the book’s title.");
         }
 
         if (clean.Author.Length == 0)
         {
-            throw new LibraryException("Enter the author's name.");
+            throw new LibraryException("Enter the author’s name.");
         }
 
         if (clean.Barcode.Length == 0)
         {
-            throw new LibraryException("Enter or scan the book's barcode.");
+            throw new LibraryException("Enter or scan the book’s barcode.");
         }
 
         return clean;
     }
 
-    /// <summary>One more than the highest number in use, so the ID of a deleted book is never recycled.</summary>
-    private string NextBookId()
-    {
-        var highest = Books.Max(book => book.NumericId) ?? -1;
-        return (highest + 1).ToString(CultureInfo.InvariantCulture);
-    }
 
     private string NewCatalogId()
     {

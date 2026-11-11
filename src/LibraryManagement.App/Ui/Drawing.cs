@@ -84,6 +84,9 @@ internal static class Drawing
         graphics.DrawString(text, font, brush, bounds, format);
     }
 
+    /// <summary>True when Windows' "Show animations" setting is on (the desktop's reduced-motion switch).</summary>
+    public static bool AnimationsEnabled => SystemInformation.UIEffectsEnabled;
+
     /// <summary>Width of <paramref name="text"/> in pixels at the current screen DPI.</summary>
     public static int MeasureWidth(string text, Font font)
     {

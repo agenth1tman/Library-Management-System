@@ -7,9 +7,9 @@ namespace LibraryManagement.App;
 
 internal enum Page
 {
-    Dashboard,
+    Today,
     Library,
-    Manage,
+    Desk,
     Register,
     Reports,
     Settings,
@@ -32,10 +32,17 @@ internal interface IShell
 
     void Navigate(Page page);
 
-    /// <summary>Opens the Manage screen with <paramref name="book"/> loaded.</summary>
+    /// <summary>Opens the issue-and-return desk with <paramref name="book"/> loaded.</summary>
     void OpenBook(Book book);
 
-    void Notify(string message, NoticeKind kind = NoticeKind.Success);
+    /// <summary>Opens the desk and looks up whatever was typed or scanned.</summary>
+    void LookUpBook(string query);
+
+    /// <summary>
+    /// Shows a short message along the bottom of the window. For background events and
+    /// failures only; the result of a button press is shown next to that button.
+    /// </summary>
+    void Notify(string message, NoticeKind kind = NoticeKind.Info);
 
     /// <summary>
     /// Runs a database operation with the busy indicator on and errors reported to the user.

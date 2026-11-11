@@ -4,12 +4,21 @@ using LibraryManagement.Models;
 
 namespace LibraryManagement.App.Views;
 
-/// <summary>Adds a new copy to the catalogue.</summary>
+/// <summary>
+/// Adds new copies to the catalogue. Books registered today are listed alongside with
+/// their numbers and catalogue IDs, because the next job is writing those on the labels.
+/// </summary>
 internal sealed class RegisterView : ViewBase
 {
-    private readonly InputBox _title = new("e.g. To Kill a Mockingbird") { MaxLength = 200 };
-    private readonly InputBox _author = new("e.g. Harper Lee") { MaxLength = 200 };
-    private readonly InputBox _barcode = new("Scan the barcode or type it") { MaxLength = 64 };
+    private readonly Label _nextNumber = Make.Subtitle();
+    private readonly FormField _title = new("Title", new InputBox { MaxLength = 200 });
+    private readonly FormField _author = new("Author", new InputBox { MaxLength = 200 });
+    private readonly FormField _barcode = new("Barcode", new InputBox("Scan it, or type the number") { MaxLength = 64 });
+    private readonly Label _result = Make.Text(string.Empty, Theme.Body, Theme.Available, wrap: true);
+    private readonly Label _noneToday = Make.Text("Books you register today are listed here, ready for labelling.", Theme.Body, Theme.InkMuted);
+    private readonly BookGrid _today = new(
+        "Registered today",
+        BookColumn.Id, BookColumn.CatalogId, BookColumn.Title, BookColumn.Author);
 
     public RegisterView(IShell shell)
         : base(shell)
@@ -20,67 +29,77 @@ internal sealed class RegisterView : ViewBase
         var clear = new AppButton("Clear");
         clear.Click += (_, _) => ClearForm();
 
-        var note = Make.Text(
-            "The book ID and catalogue ID are generated automatically. A scanner can be used for the barcode.",
-            Theme.Small,
-            Theme.TextMuted,
-            wrap: true);
-        note.Margin = new Padding(1, 0, 0, Theme.Gap + 2);
+        var buttons = Make.Flow(8, register, clear);
+        buttons.Margin = new Padding(0, 4, 0, 12);
 
-        var form = Make.Stack(
-            Make.Field("Title", _title),
-            Make.Field("Author", _author),
-            Make.Field("Barcode", _barcode),
-            note,
-            Make.Flow(10, register, clear));
-
-        var card = new Card { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, Padding = new Padding(24) };
-        card.Controls.Add(form);
-
-        var row = new TableLayoutPanel { ColumnCount = 2, RowCount = 1, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 600));
-        row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        row.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        card.Dock = DockStyle.Fill;
-        row.Controls.Add(card, 0, 0);
+        var form = Make.Stack(_title, _author, _barcode, buttons, _result);
+        var registeredToday = Make.Section("Registered today", Make.GridWithEmptyState(_today, _noneToday), fill: true);
 
         Compose(
-            (Make.Header("Register a book", Make.Subtitle("Add a new copy to the catalogue.")), false),
-            (row, false),
-            (new Panel(), true));
+            (Make.Header("Register a book", _nextNumber), false),
+            (Make.Columns(40, (form, 36), (registeredToday, 64)), true));
 
         // Enter moves down the form; on the last field it submits (scanners end with Enter).
-        _title.EnterPressed += (_, _) => _author.FocusInput();
-        _author.EnterPressed += (_, _) => _barcode.FocusInput();
-        _barcode.EnterPressed += async (_, _) => await RegisterAsync();
+        _title.Input.EnterPressed += (_, _) => _author.Input.FocusInput();
+        _author.Input.EnterPressed += (_, _) => _barcode.Input.FocusInput();
+        _barcode.Input.EnterPressed += async (_, _) => await RegisterAsync();
+        _today.BookActivated += (_, book) => Shell.OpenBook(book);
+
+        Store.Changed += (_, _) => Render();
+        Render();
     }
 
-    public override void OnNavigatedTo() => _title.FocusInput();
+    public override void OnNavigatedTo() => _title.Input.FocusInput();
 
     private async Task RegisterAsync()
     {
+        _result.Text = string.Empty;
+
+        // Check every field so all problems show at once, then put the cursor in the first.
+        FormField[] fields = [_title, _author, _barcode];
+        string[] messages = ["Enter the book’s title.", "Enter the author’s name.", "Scan or type the book’s barcode."];
+        var invalid = fields.Where((field, index) => !field.Require(messages[index])).ToList();
+        if (invalid.Count > 0)
+        {
+            invalid[0].Input.FocusInput();
+            return;
+        }
+
         Book? registered = null;
-        var succeeded = await Shell.RunAsync(
-            async () => registered = await Store.RegisterBookAsync(_title.Text, _author.Text, _barcode.Text));
+        var succeeded = await Shell.RunAsync(async () =>
+            registered = await Store.RegisterBookAsync(_title.Input.Text, _author.Input.Text, _barcode.Input.Text));
 
         if (succeeded && registered is not null)
         {
-            Shell.Notify($"Registered “{registered.Title}” as book {registered.Id} ({registered.CatalogId}).");
             ClearForm();
-        }
-        else
-        {
-            // Put the cursor where the problem most likely is.
-            InputBox[] fields = [_title, _author, _barcode];
-            (fields.FirstOrDefault(field => string.IsNullOrWhiteSpace(field.Text)) ?? _title).FocusInput();
+            _result.Text = $"Registered “{registered.Title}” as book {registered.Id}, catalogue ID {registered.CatalogId}.";
         }
     }
 
     private void ClearForm()
     {
-        _title.Text = string.Empty;
-        _author.Text = string.Empty;
-        _barcode.Text = string.Empty;
-        _title.FocusInput();
+        foreach (var field in new[] { _title, _author, _barcode })
+        {
+            field.Input.Text = string.Empty;
+            field.Error = null;
+        }
+
+        _result.Text = string.Empty;
+        _title.Input.FocusInput();
+    }
+
+    private void Render()
+    {
+        _nextNumber.Text = $"The next book will be number {Store.NextBookId}.";
+
+        var today = Store.Today;
+        var registeredToday = Store.Books
+            .Where(book => book.RegisteredOn == today)
+            .OrderByDescending(book => book.NumericId ?? int.MinValue)
+            .ToList();
+
+        _today.SetBooks(registeredToday, today);
+        _today.Visible = registeredToday.Count > 0;
+        _noneToday.Visible = registeredToday.Count == 0;
     }
 }

@@ -51,9 +51,12 @@ public class LibraryStoreTests
     {
         var store = await ConnectedStoreAsync(TestData.Book("0"), TestData.Book("1"), TestData.Book("7"));
 
+        Assert.Equal("8", store.NextBookId);
+
         var book = await store.RegisterBookAsync("  Dune ", " Frank Herbert", "9780441013593 ");
 
         Assert.Equal("8", book.Id);
+        Assert.Equal("9", store.NextBookId);
         Assert.Equal("Dune", book.Title);
         Assert.Equal("Frank Herbert", book.Author);
         Assert.Equal(Today, book.RegisteredOn);
@@ -66,6 +69,7 @@ public class LibraryStoreTests
     {
         var store = await ConnectedStoreAsync();
 
+        Assert.Equal("0", store.NextBookId);
         Assert.Equal("0", (await store.RegisterBookAsync("Dune", "Frank Herbert", "1")).Id);
     }
 
