@@ -26,6 +26,7 @@ public sealed class InfrastructureTests : IDisposable
             CredentialsPath = @"C:\keys\library.json",
             ReportsFolder = @"D:\Reports",
             LastReportSavedOn = new DateOnly(2026, 3, 10),
+            Window = new WindowPlacement(Left: -1200, Top: 40, Width: 1240, Height: 800, Maximized: true),
         };
 
         store.Save(settings);
@@ -37,6 +38,7 @@ public sealed class InfrastructureTests : IDisposable
         Assert.Equal(settings.ReportsFolder, loaded.ReportsFolder);
         Assert.Equal(settings.LastReportSavedOn, loaded.LastReportSavedOn);
         Assert.Null(loaded.LastReportShownOn);
+        Assert.Equal(settings.Window, loaded.Window);
     }
 
     [Fact]
@@ -99,8 +101,8 @@ public sealed class InfrastructureTests : IDisposable
         var denied = new RpcException(new Status(StatusCode.PermissionDenied, "Missing or insufficient permissions."));
         var odd = new RpcException(new Status(StatusCode.ResourceExhausted, "Quota exceeded for quota metric 'x'."));
 
-        Assert.StartsWith("Can't reach the library database", FirestoreLibraryRepository.Explain(unreachable));
-        Assert.StartsWith("Can't reach the library database", FirestoreLibraryRepository.Explain(cannotStart));
+        Assert.StartsWith("Can’t reach the library database", FirestoreLibraryRepository.Explain(unreachable));
+        Assert.StartsWith("Can’t reach the library database", FirestoreLibraryRepository.Explain(cannotStart));
         Assert.StartsWith("Firebase rejected the key file", FirestoreLibraryRepository.Explain(denied));
         Assert.Contains("took too long", FirestoreLibraryRepository.Explain(new TaskCanceledException()));
         Assert.DoesNotContain("quota metric", FirestoreLibraryRepository.Explain(odd));

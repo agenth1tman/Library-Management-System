@@ -166,7 +166,7 @@ public sealed class FirestoreLibraryRepository : ILibraryRepository
     /// </summary>
     internal static string Explain(Exception exception)
     {
-        const string Unreachable = "Can't reach the library database. Check the internet connection and try again.";
+        const string Unreachable = "Can’t reach the library database. Check the internet connection and try again.";
 
         if (exception is OperationCanceledException)
         {

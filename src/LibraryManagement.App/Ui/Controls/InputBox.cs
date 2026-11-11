@@ -3,12 +3,13 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace LibraryManagement.App.Ui.Controls;
 
-/// <summary>A single-line text field with a rounded border that turns gold while focused.</summary>
+/// <summary>A single-line text field. The border darkens on focus and turns red on an error.</summary>
 internal sealed class InputBox : Control
 {
-    private const int HorizontalPadding = 12;
+    private const int HorizontalPadding = 9;
 
     private readonly TextBox _textBox;
+    private bool _hasError;
 
     public InputBox(string placeholder = "")
     {
@@ -21,8 +22,8 @@ internal sealed class InputBox : Control
         _textBox = new TextBox
         {
             BorderStyle = BorderStyle.None,
-            BackColor = Theme.SurfaceRaised,
-            ForeColor = Theme.Text,
+            BackColor = Theme.Field,
+            ForeColor = Theme.Ink,
             Font = Theme.Input,
             PlaceholderText = placeholder,
         };
@@ -36,13 +37,16 @@ internal sealed class InputBox : Control
         _textBox.SizeChanged += (_, _) => PerformLayout();
 
         Controls.Add(_textBox);
-        Size = new Size(240, 40);
+        Size = new Size(240, Theme.ControlHeight);
         Margin = Padding.Empty;
         Cursor = Cursors.IBeam;
     }
 
     /// <summary>Raised when Enter is pressed. Barcode scanners "press" Enter after each scan.</summary>
     public event EventHandler? EnterPressed;
+
+    /// <summary>Raised when Esc is pressed.</summary>
+    public event EventHandler? EscapePressed;
 
     [AllowNull]
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
@@ -59,6 +63,25 @@ internal sealed class InputBox : Control
         set => _textBox.MaxLength = value;
     }
 
+    /// <summary>What a screen reader calls this field (its visible caption).</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Caption
+    {
+        get => _textBox.AccessibleName ?? string.Empty;
+        set => _textBox.AccessibleName = value;
+    }
+
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public bool HasError
+    {
+        get => _hasError;
+        set
+        {
+            _hasError = value;
+            Invalidate();
+        }
+    }
+
     public void FocusInput()
     {
         _textBox.Focus();
@@ -69,6 +92,18 @@ internal sealed class InputBox : Control
     {
         _textBox.Focus();
         base.OnClick(e);
+    }
+
+    protected override void OnVisibleChanged(EventArgs e)
+    {
+        base.OnVisibleChanged(e);
+
+        // DPI scaling resizes this control with layout switched off, so re-centre the
+        // text box when the screen it is on is actually shown.
+        if (Visible)
+        {
+            PerformLayout();
+        }
     }
 
     protected override void OnLayout(LayoutEventArgs levent)
@@ -82,20 +117,16 @@ internal sealed class InputBox : Control
     protected override void OnPaint(PaintEventArgs e)
     {
         var graphics = e.Graphics;
-        graphics.Clear(Parent?.BackColor ?? Theme.Background);
+        graphics.Clear(Parent?.BackColor ?? Theme.Page);
         Drawing.Prepare(graphics);
 
         var bounds = Drawing.Face(this);
-        var radius = LogicalToDeviceUnits(Theme.CornerRadius - 2);
+        var radius = LogicalToDeviceUnits(Theme.CornerRadius);
         Drawing.FillRounded(graphics, _textBox.BackColor, bounds, radius);
 
         var focused = _textBox.Focused;
-        Drawing.StrokeRounded(
-            graphics,
-            focused ? Theme.Accent : Theme.Border,
-            bounds,
-            radius,
-            LogicalToDeviceUnits(focused ? 2 : 1));
+        var border = _hasError ? Theme.Overdue : focused ? Theme.Navy : Theme.RuleStrong;
+        Drawing.StrokeRounded(graphics, border, bounds, radius, LogicalToDeviceUnits(focused || _hasError ? 2 : 1));
     }
 
     private void OnTextBoxKeyDown(object? sender, KeyEventArgs e)
@@ -105,6 +136,12 @@ internal sealed class InputBox : Control
             e.Handled = true;
             e.SuppressKeyPress = true; // no "ding"
             EnterPressed?.Invoke(this, EventArgs.Empty);
+        }
+        else if (e.KeyCode == Keys.Escape && EscapePressed is not null)
+        {
+            e.Handled = true;
+            e.SuppressKeyPress = true;
+            EscapePressed.Invoke(this, EventArgs.Empty);
         }
     }
 }

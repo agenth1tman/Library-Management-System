@@ -7,22 +7,29 @@ books.
 
 Built with C# and WinForms on .NET 8.
 
-| Dashboard | Issue / return |
+| Today | Issue & return |
 | --- | --- |
-| ![Dashboard](docs/screenshots/dashboard.png) | ![Manage a book](docs/screenshots/manage.png) |
+| ![Today](docs/screenshots/today.png) | ![Issue and return](docs/screenshots/desk.png) |
 | **Library** | **Daily report** |
 | ![Library](docs/screenshots/library.png) | ![Daily report](docs/screenshots/report.png) |
 
 ## Features
 
-- **Dashboard** with totals and the loans that need chasing (overdue, or due within 3 days).
-- **Library** with search-as-you-type across title, author, barcode, IDs and borrower.
-- **Manage a book**: look it up by ID, catalogue label or barcode, then issue, return,
-  edit or delete it. Works with USB barcode scanners (they type the code and press Enter).
+- **Today**: what is overdue and what is due within 3 days, with a box to jump straight to
+  a book.
+- **Library** with search-as-you-type across title, author, barcode, IDs and borrower, and
+  filters that show how many books each holds.
+- **Issue & return**: look a book up by number, catalogue label or barcode, then issue or
+  return it, or edit or delete its record. Works with USB barcode scanners (they type the
+  code and press Enter).
+- **Register**: add copies and see today's registrations with their catalogue IDs, ready
+  for labelling.
 - **Lending rules** in one place: students borrow for a month, teachers until the end of
   the school year (25 June).
 - **Daily report** on screen and as an Excel workbook, optionally saved automatically once a day.
 - **Sample-data mode** to try the app without a Firebase project.
+- **Keyboard**: Ctrl+1 to Ctrl+6 switch screens, F5 reloads, Enter submits, Esc clears the
+  search.
 
 ## Run it
 
@@ -85,7 +92,7 @@ src/
     Reporting/                Excel export of the daily report
     Configuration/            Per-user settings (JSON under %AppData%)
   LibraryManagement.App/      The WinForms app
-    Ui/                       Theme, bundled font, custom-drawn controls
+    Ui/                       Theme, embedded title font, custom-drawn controls
     Views/                    One class per screen
     MainForm.cs               Sidebar, navigation, busy indicator, notifications
 tests/
@@ -94,7 +101,8 @@ tests/
 
 The screens are built in code (see `Ui/Make.cs`) rather than with the drag-and-drop
 designer, which keeps each one short and lets the layout stretch and scale with the
-display's DPI.
+display's DPI. The design rules the UI follows are written down in
+`.claude/skills/winforms-design-guidelines/SKILL.md`.
 
 ### Where things are stored
 
@@ -104,8 +112,9 @@ display's DPI.
 | Error log | `%AppData%\Library Management System\logs\app.log` |
 | Reports | `Documents\Library Management System` (changeable in Settings) |
 
-The display font (Starz 2016), the crest and the icon are embedded in the executable, so
-the app looks the same on any computer without installing anything.
+The title typeface (Crimson Text), the crest and the icon are embedded in the executable,
+so the app looks the same on any computer without installing anything. All other text
+uses Segoe UI, which is part of Windows.
 
 ## Tests
 
@@ -129,6 +138,10 @@ Copy the whole `publish` folder to the other PC and run `LibraryManagementSystem
 ## Licences
 
 - This project: see [LICENSE](LICENSE).
+- [Crimson Text](https://github.com/googlefonts/Crimson) is under the
+  [SIL Open Font License 1.1](src/LibraryManagement.App/Assets/Fonts/CrimsonText-OFL.txt),
+  which permits bundling and embedding it in software. Its licence file ships in the
+  app's `licenses` folder.
 - [EPPlus](https://epplussoftware.com/) is used under its Polyform Noncommercial licence,
   which covers non-commercial use such as a school library. Commercial use needs a paid
   EPPlus licence.

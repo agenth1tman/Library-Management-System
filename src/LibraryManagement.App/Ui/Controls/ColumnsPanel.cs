@@ -1,7 +1,7 @@
 namespace LibraryManagement.App.Ui.Controls;
 
 /// <summary>
-/// Lays its children out side by side, sharing the width by weight, all the same height.
+/// Lays its children out side by side, sharing the width by weight.
 /// <para>
 /// With <see cref="Control.AutoSize"/> on, the panel is as tall as its tallest child
 /// measured at the width that child will actually get, so wrapped text never throws the
@@ -49,7 +49,13 @@ internal sealed class ColumnsPanel : Panel
 
         foreach (var (control, left, columnWidth) in Arrange(ClientSize.Width))
         {
-            control.SetBounds(left, 0, columnWidth, ClientSize.Height);
+            // Children that size themselves to their content stay that tall (stretching
+            // them would spread their rows out); the rest fill the panel's height.
+            var height = control.AutoSize
+                ? Math.Min(ClientSize.Height, control.GetPreferredSize(new Size(columnWidth, 0)).Height)
+                : ClientSize.Height;
+
+            control.SetBounds(left, 0, columnWidth, height);
         }
     }
 

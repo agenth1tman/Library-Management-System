@@ -18,4 +18,10 @@ public sealed class AppSettings
     public DateOnly? LastReportShownOn { get; set; }
 
     public DateOnly? LastReportSavedOn { get; set; }
+
+    /// <summary>Where the main window was when the app last closed, so it reopens the same way.</summary>
+    public WindowPlacement? Window { get; set; }
 }
+
+/// <summary>The main window's position and size in screen pixels (its un-maximised bounds).</summary>
+public sealed record WindowPlacement(int Left, int Top, int Width, int Height, bool Maximized);
