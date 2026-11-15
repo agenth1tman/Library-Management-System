@@ -101,8 +101,7 @@ tests/
 
 The screens are built in code (see `Ui/Make.cs`) rather than with the drag-and-drop
 designer, which keeps each one short and lets the layout stretch and scale with the
-display's DPI. The design rules the UI follows are written down in
-`.claude/skills/winforms-design-guidelines/SKILL.md`.
+display's DPI.
 
 ### Where things are stored
 
